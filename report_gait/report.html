@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Анализ кинематики походки — отчёт о программном комплексе</title>
+<style>
+  body {
+    font-family: "Liberation Serif", Georgia, "Times New Roman", serif;
+    color: #15282f;
+    line-height: 1.5;
+    font-size: 12pt;
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 26pt; color: #114643; line-height: 1.15; margin: 0 0 4pt 0; }
+  h2 { font-size: 18pt; color: #114643; border-bottom: 2px solid #068176; padding-bottom: 3pt; margin-top: 26pt; }
+  h3 { font-size: 14pt; color: #15282f; margin-top: 18pt; }
+  h4 { font-size: 12pt; color: #475d2e; margin-top: 14pt; margin-bottom: 4pt; }
+  p { margin: 6pt 0; text-align: justify; }
+  .lead { font-size: 13pt; color: #3a4a50; }
+  .muted { color: #6a757a; }
+  code, .mono { font-family: "Liberation Mono", "Courier New", monospace; font-size: 10.5pt; background: #f1ede3; padding: 0 2px; }
+  pre { font-family: "Liberation Mono", "Courier New", monospace; font-size: 9pt; line-height: 1.35;
+        background: #f6f3ea; border: 1px solid #d8d2c4; border-left: 3px solid #068176;
+        padding: 8pt 10pt; margin: 8pt 0; white-space: pre-wrap; word-break: break-word; color: #15282f; }
+  .codecap { font-family: "Liberation Sans", Arial, sans-serif; font-size: 9pt; color: #6a757a; margin: 8pt 0 2pt 0; }
+  table { border-collapse: collapse; width: 100%; margin: 10pt 0; font-size: 10.5pt; }
+  th, td { border: 1px solid #c9c2b2; padding: 4pt 6pt; text-align: left; vertical-align: top; }
+  th { background: #114643; color: #ffffff; font-family: "Liberation Sans", Arial, sans-serif; }
+  tr:nth-child(even) td { background: #f6f3ea; }
+  figure { margin: 12pt 0; text-align: center; }
+  figure img { border: 1px solid #d8d2c4; }
+  figcaption { font-family: "Liberation Sans", Arial, sans-serif; font-size: 9.5pt; color: #6a757a; margin-top: 3pt; text-align: center; }
+  ul, ol { margin: 6pt 0 6pt 0; padding-left: 22pt; }
+  li { margin: 3pt 0; text-align: justify; }
+  blockquote { border-left: 3px solid #068176; margin: 10pt 0; padding: 4pt 12pt; background: #f6f3ea; color: #3a4a50; }
+  .tag { font-family: "Liberation Sans", Arial, sans-serif; font-size: 9pt; background: #e6e1d4; color: #475d2e; padding: 1px 6px; border-radius: 8px; }
+  .warn { background: #f4dad3; border-left: 3px solid #8a3a2e; padding: 6pt 12pt; margin: 10pt 0; }
+  .ok { background: #e8efdd; border-left: 3px solid #3f7a3a; padding: 6pt 12pt; margin: 10pt 0; }
+  .cover { text-align: center; padding: 40pt 0 20pt 0; }
+  .cover .sub { font-size: 14pt; color: #068176; font-family: "Liberation Sans", Arial, sans-serif; letter-spacing: 1px; }
+  .toc { font-family: "Liberation Sans", Arial, sans-serif; font-size: 11pt; }
+  .toc li { margin: 2pt 0; }
+  hr { border: none; border-top: 1px solid #d8d2c4; margin: 20pt 0; }
+  .pb { page-break-before: always; }
+  .small { font-size: 10pt; }
+  .stat-ok { color: #3f7a3a; font-weight: bold; }
+  .stat-part { color: #a98b1f; font-weight: bold; }
+  .stat-gate { color: #8a3a2e; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<!-- ───────────────────────── ОБЛОЖКА ───────────────────────── -->
+<div class="cover">
+  <div class="sub">GAIT KINEMATICS · CALISCOPE</div>
+  <h1>Безмаркерный анализ кинематики походки<br>по видео с нескольких камер</h1>
+  <p class="lead">Отчёт о программном комплексе и технической реализации</p>
+  <p class="muted small">Платформа: настольное приложение (PyQt6) + CLI · Python 3.14<br>
+  Дата: 31 мая 2026 г. · Статус: ядро и GUI реализованы; контур сравнения с Vicon — заблокирован</p>
+</div>
+
+<blockquote class="small">
+<strong>О документе.</strong> Это сводный отчёт о программном комплексе анализа кинематики походки (рабочий каталог
+<code>gait_analysis/</code>). Описание целевой системы опирается на техническое задание (<code>ТЗ_Анализ_кинематики_походки.docx</code>)
+и проектные материалы каталога <code>docs/</code>; описание реализации — на фактический исходный код репозитория. Все
+приведённые графики и снимки получены <em>программным кодом самого проекта на реальных данных</em> (сессии пациента p1).
+Документ намеренно честно разграничивает <em>реализованное</em>, <em>частично реализованное</em> и <em>целевое</em>.
+</blockquote>
+
+<h2>Содержание</h2>
+<ol class="toc">
+  <li>Краткое резюме</li>
+  <li>Контекст и задача (техническое задание)</li>
+  <li>Возможности и сценарии использования</li>
+  <li>Архитектура системы</li>
+  <li>Модули и алгоритмы</li>
+  <li>Результаты и валидация</li>
+  <li>Качество кода и тестирование</li>
+  <li>Текущие ограничения и известные проблемы</li>
+  <li>Дорожная карта</li>
+  <li>Приложения (CLI, критерии приёмки, репозиторий, данные, зависимости)</li>
+</ol>
+
+<!-- ───────────────────────── 1. РЕЗЮМЕ ───────────────────────── -->
+<h2 class="pb">1. Краткое резюме</h2>
+
+<p><strong>Программный комплекс анализа кинематики походки</strong> восстанавливает клинические параметры ходьбы из
+синхронной видеозаписи с нескольких камер. Сам комплекс <em>не выполняет распознавание позы</em>: на вход подаются
+трёхмерные координаты ключевых точек тела, уже вычисленные системой безмаркерного захвата движения
+<strong>caliscope</strong> (на основе MediaPipe). Из этих координат комплекс автоматически рассчитывает суставные углы
+(тазобедренный, коленный, голеностопный), события походки (контакт пятки / отрыв носка) и пространственно-временные
+параметры (темп, скорость, длина цикла и шага, фазы опоры/переноса), нормирует кривые по циклу походки (0–100%) и
+сохраняет результат в машиночитаемом виде.</p>
+
+<p>Комплекс предназначен для двух режимов работы:</p>
+<ul>
+  <li><strong>Командная строка (CLI)</strong> — пакетная обработка сессий, расчёт воспроизводимости между записями,
+  генерация видео с наложенным скелетом. Подходит для исследований и автоматизации.</li>
+  <li><strong>Настольное приложение (GUI на PyQt6)</strong> — интерактивная работа клинициста: загрузка проекта
+  caliscope, запуск анализа, 3D-визуализация скелета с воспроизведением, графики суставных углов, экспорт в CSV/XLSX/PNG.</li>
+</ul>
+
+<p><strong>Технически</strong> система построена как набор независимых импортируемых Python-модулей (data_loader,
+kinematics, visualization), объединённых общим конвейером <code>run_pipeline</code>, который используется и CLI, и GUI.
+Тяжёлые вычисления вынесены в фоновый поток (QThread). Бизнес-логика полностью отделена от интерфейса; все параметры
+вынесены в конфигурацию (<code>settings.yaml</code>); каждый модуль работает и без GUI.</p>
+
+<div class="warn">
+<strong>Ключевая оговорка.</strong> Реализованы и работают <strong>модули загрузки и кинематики, визуализация и GUI</strong>
+(Этапы 1–2 ТЗ), а также дополнительный продюсер видео с разметкой. <strong>Контур количественного сравнения с эталоном
+Vicon</strong> (модуль <code>comparison</code>: выравнивание систем координат, метрики RMSE/MAE/ICC, отчёт) и обёртка
+эталонного скрипта <code>VvsC.py</code> — <strong>не реализованы</strong>: для них в предоставленном наборе данных
+отсутствуют сами данные Vicon (XLSX) и скрипт. Соответственно уровни валидации <em>A</em> (точность относительно
+Vicon) и <em>C</em> (сравнительная таблица алгоритмов) пока недостижимы. При этом архитектура заранее предусматривает
+этот контур: его добавление не требует переделки остальной системы.
+</div>
+
+<h4>Ключевые цифры реализации</h4>
+<table>
+  <tr><th>Параметр</th><th>Значение</th></tr>
+  <tr><td>Реализованные модули</td><td>data_loader, kinematics, visualization + GUI + CLI</td></tr>
+  <tr><td>Этапы (по ТЗ)</td><td>Этап 1 (ядро) и Этап 2 (GUI) — выполнены; Этап 3 (Vicon) — заблокирован</td></tr>
+  <tr><td>Подкоманд CLI</td><td>3 (<code>analyze</code>, <code>reproducibility</code>, <code>produce-videos</code>)</td></tr>
+  <tr><td>Вкладок GUI</td><td>2 («Анализ», «Визуализация»)</td></tr>
+  <tr><td>Суставных углов / точек скелета</td><td>6 углов (3 сустава × 2 стороны) · 12 суставов · 12 «костей»</td></tr>
+  <tr><td>Нормирование цикла походки</td><td>101 точка (0–100%)</td></tr>
+  <tr><td>Тесты / линтинг</td><td>79 тестов (pytest), все проходят; <code>ruff</code> — чисто</td></tr>
+  <tr><td>Главный результат (уровень B)</td><td>темп / длина цикла / скорость воспроизводимы с <strong>CV &lt; 11%</strong> между сессиями</td></tr>
+</table>
+
+<!-- ───────────────────────── 2. КОНТЕКСТ ───────────────────────── -->
+<h2 class="pb">2. Контекст и задача (техническое задание)</h2>
+
+<p>Задача поставлена техническим заданием «Анализ кинематики походки» (v1.0). Цель — программный комплекс, который
+по синхронной видеозаписи (2 и более камер; в реальном наборе — 3 камеры) обеспечивает: (1) получение 3D-координат
+ключевых точек тела через caliscope; (2) автоматический расчёт параметров походки (суставные углы и
+пространственно-временные характеристики); (3) <strong>сравнение точности с маркерной эталонной системой Vicon</strong>;
+(4) удобный графический интерфейс для клинического применения. Предметная область — клиническая биомеханика и анализ
+походки; используются общепринятые соглашения (нормирование по циклу походки 0–100%, кривые «среднее ± 1 СКО»).</p>
+
+<h3>2.1. Проектные принципы ТЗ</h3>
+<ul>
+  <li>Каждый модуль — самостоятельный импортируемый Python-пакет, работающий <strong>без GUI</strong>.</li>
+  <li>Бизнес-логика полностью отделена от интерфейса.</li>
+  <li>Все параметры — в конфигурационных файлах (TOML/YAML), ничего не «зашито» в код.</li>
+  <li>Каждый модуль запускается из командной строки; промежуточные результаты сохраняются в JSON/CSV.</li>
+  <li>Воспроизводимость: фиксированное зерно генератора случайных чисел.</li>
+</ul>
+
+<h3>2.2. Методика валидации (три уровня данных)</h3>
+<p>ТЗ предписывает апробацию на трёх уровнях:</p>
+<table>
+  <tr><th>Уровень</th><th>Данные</th><th>Что проверяется</th><th>Целевой критерий</th></tr>
+  <tr><td><strong>A</strong></td><td>Синхронные записи (3 камеры + Vicon)</td><td>Точность относительно эталона: RMSE/MAE/ICC по суставам</td><td>RMSE колена &lt; 5°, ICC &gt; 0,85</td></tr>
+  <tr><td><strong>B</strong></td><td>Пациент p1, 5 сессий (p1_1…p1_5)</td><td>Воспроизводимость между записями: коэффициент вариации (CV)</td><td>CV &lt; 15% (по критерию №6); &lt; 10% (по §11.2 ТЗ)</td></tr>
+  <tr><td><strong>C</strong></td><td>Сводная таблица</td><td>Сравнение алгоритмов: базовый (VvsC.py) / HOLISTIC / разработанный</td><td>Заполненная таблица точности</td></tr>
+</table>
+
+<div class="ok small">
+<strong>Что доступно по факту.</strong> В предоставленном наборе <code>caliscope_project</code> присутствуют только
+безмаркерные записи (3 камеры, модели трекинга POSE / SIMPLE_HOLISTIC / HOLISTIC), но <strong>нет данных Vicon и нет
+скрипта VvsC.py</strong>. Поэтому реально достижим <strong>уровень B</strong> (выполнен), а уровни A и C —
+заблокированы до получения эталонных данных от заказчика. Десять критериев приёмки ТЗ и их статус приведены в
+Приложении B.
+</div>
+
+<blockquote class="small"><strong>Расхождение в ТЗ (зафиксировано).</strong> По воспроизводимости ТЗ внутренне
+противоречив: раздел §11.2 (уровень B) требует <code>CV &lt; 10%</code> («хорошая воспроизводимость»), а критерий приёмки
+№6 — <code>CV &lt; 15%</code>. В реализации в качестве порога принят критерий №6 (&lt; 15%); фактический результат
+(&lt; 11%) проходит этот порог и близок к более строгой формулировке §11.2.</blockquote>
+
+<!-- ───────────────────────── 3. ВОЗМОЖНОСТИ ───────────────────────── -->
+<h2 class="pb">3. Возможности и сценарии использования</h2>
+
+<p>Ниже — обзор реальных возможностей комплекса. Иллюстрации получены кодом самого проекта на сессии <code>p1_3</code>
+(модель SIMPLE_HOLISTIC, 102 кадра, частота ≈20 кадр/с).</p>
+
+<h3>3.1. Командная строка (CLI)</h3>
+<p>Точка входа <code>cli.py</code> предоставляет три подкоманды:</p>
+<ul>
+  <li><code>analyze</code> — полный анализ одной сессии → файл <code>gait_results.json</code> (события, углы, параметры);</li>
+  <li><code>reproducibility</code> — расчёт воспроизводимости (CV) по набору сессий (уровень B);</li>
+  <li><code>produce-videos</code> — генерация видео с наложенным скелетом, по одному файлу на камеру.</li>
+</ul>
+
+<p class="codecap">Пример запуска анализа сессии (<code>cli.py</code>):</p>
+<pre>python -m cli analyze --session data/caliscope_project/recordings/p1_3 \
+                      --model SIMPLE_HOLISTIC --out results/p1_3.json
+# Wrote results/p1_3.json: 102 frames @ 19.996 fps, 5 left HS</pre>
+
+<h3>3.2. Видео с наложенным скелетом</h3>
+<p>Продюсер видео-разметки рисует наш скелет походки (12 суставов и «кости») непосредственно поверх исходных
+видеокадров каждой камеры, используя <strong>2D-детекции caliscope</strong> для этой камеры (файл
+<code>xy_&lt;MODEL&gt;.csv</code>, пиксельные координаты <code>img_loc_x/y</code>). Поскольку метки берутся из пиксельных
+детекций конкретной камеры, не требуется обратная проекция 3D→2D и калибровка. Результат — по одному файлу
+<code>port_N_marked.mp4</code> на камеру.</p>
+
+<figure><img src="figures/fig_overlay.png" width="300">
+<figcaption>Рис. 1 — Кадр с наложенным скелетом (сессия p1_3, камера 1): 12 суставов (красным) и «кости» (чёрным),
+полученные кодом <code>video_overlay.py</code> из реальных 2D-детекций caliscope.</figcaption></figure>
+
+<h3>3.3. Настольное приложение (GUI)</h3>
+<p>Приложение <code>app.py</code> построено на PyQt6 как окно с двумя вкладками. Все тяжёлые вычисления выполняются в
+<strong>фоновом потоке (QThread)</strong>, интерфейс не блокируется.</p>
+
+<h4>Вкладка «Анализ»</h4>
+<p>Выбор каталога сессии, выпадающий список модели трекинга (POSE / SIMPLE_HOLISTIC / HOLISTIC), поля параметров
+(частота среза фильтра, минимальная длительность шага), кнопка запуска, индикатор прогресса, компактная
+<strong>строка качества данных</strong> (число кадров · частота · длительность · предупреждение о точках с &gt;5%
+пропусков — сканируются только 12 опорных точек походки), таблица пространственно-временных параметров и кнопки
+экспорта в CSV/XLSX, а также кнопка «Produce marked videos».</p>
+
+<h4>Вкладка «Визуализация»</h4>
+<p>Интерактивная 3D-визуализация скелета (vispy/OpenGL) с воспроизведением (слайдер кадров, Play/Pause, скорость
+0,25× / 0,5× / 1×; шаг таймера привязан к реальной частоте съёмки, поэтому 1× совпадает с длительностью записи) и
+графики суставных углов (matplotlib) под ней; экспорт текущего графика в PNG.</p>
+
+<figure><img src="figures/fig_skeleton.png" width="340">
+<figcaption>Рис. 2 — 3D-скелет одной позы (сессия p1_3, все 12 суставов): геометрия построена GL-независимым
+ядром проекта <code>skeleton_3d.py</code> (вертикальная ось — Z). В приложении тот же набор точек и «костей»
+отображается интерактивно через vispy/OpenGL.</figcaption></figure>
+
+<figure><img src="figures/fig_angles.png" width="680">
+<figcaption>Рис. 3 — Суставные углы по циклу походки (0–100%) для сессии p1_3: тазобедренный, коленный и голеностопный
+суставы; левая сторона — синим, правая — красным, заливка — ±1 СКО между циклами. График построен модулем
+<code>angle_plots.py</code> (объектный API matplotlib, без pyplot).</figcaption></figure>
+
+<!-- ───────────────────────── 4. АРХИТЕКТУРА ───────────────────────── -->
+<h2 class="pb">4. Архитектура системы</h2>
+
+<h3>4.1. Целевая архитектура (видение ТЗ)</h3>
+<p>ТЗ описывает четыре модуля и графическую оболочку: <strong>Модуль 1 — data_loader</strong> (чтение caliscope и Vicon,
+конфигов, синхронизация); <strong>Модуль 2 — kinematics</strong> (события походки, суставные углы, пространственно-временные
+параметры, нормирование, фильтры); <strong>Модуль 3 — comparison</strong> (выравнивание систем координат, метрики, отчёт
+сравнения с Vicon); <strong>Модуль 4 — visualization</strong> (3D-скелет, графики углов, экспорт); плюс GUI с четырьмя
+панелями (загрузка / анализ / сравнение с Vicon / визуализация), <code>cli.py</code> и <code>app.py</code>.</p>
+
+<h3>4.2. Реализованная архитектура</h3>
+<p>Реализованы Модули 1, 2 и 4, GUI и CLI; общий конвейер <code>run_pipeline</code> используется и из командной строки,
+и из GUI-воркера. <strong>Модуль 3 (comparison) не реализован</strong> — это ядро будущего Этапа 3. GUI выполнен с
+<strong>двумя</strong> вкладками вместо четырёх: панель «Сравнение с Vicon» сознательно опущена как заблокированная
+(нет данных), а загрузка совмещена с вкладкой «Анализ».</p>
+
+<figure><img src="figures/fig_architecture.png" width="690">
+<figcaption>Рис. 4 — Карта модулей. Реализованное показано светлым; <span class="stat-gate">красным</span> выделен
+заблокированный контур сравнения с Vicon (модуль <code>comparison</code> и зависящие от Vicon уровни валидации A и C).</figcaption></figure>
+
+<h3>4.3. Конвейер обработки (end-to-end)</h3>
+<p>Функция <code>run_pipeline(df, cfg, *, model, session_id, progress_cb)</code> возвращает <code>(results, df)</code> и
+выполняет фиксированную последовательность стадий с отчётом о прогрессе. Частота съёмки передаётся в
+<code>df.attrs["fps"]</code> и используется фильтром и детектором событий.</p>
+
+<figure><img src="figures/fig_pipeline.png" width="700">
+<figcaption>Рис. 5 — Конвейер: <code>fill_gaps → фильтр Баттерворта → детекция событий → суставные углы →
+нормирование цикла → пространственно-временные параметры → результат</code>.</figcaption></figure>
+
+<ol class="small">
+  <li><strong>0.10</strong> — <code>fill_gaps</code>: кубическая интерполяция внутренних пропусков длиной ≤ 10 кадров.</li>
+  <li><strong>0.25</strong> — фильтр: нуль-фазовый Баттерворт 6 Гц по каждому столбцу координат (пропуск столбцов с остаточными NaN).</li>
+  <li><strong>0.45</strong> — <code>detect_gait_events</code>: контакт пятки (HS) и отрыв носка (TO) слева и справа.</li>
+  <li><strong>0.60</strong> — <code>calc_joint_angles_timeseries</code>: углы hip/knee/ankle для обеих сторон.</li>
+  <li><strong>0.80</strong> — <code>calc_spatiotemporal</code>: темп, скорость, длины, фазы.</li>
+  <li><strong>0.90</strong> — нормирование циклов HS→HS к 101 точке и расчёт «среднее ± СКО».</li>
+  <li><strong>1.0</strong> — сборка результата (события, параметры, кривые углов, метаданные).</li>
+</ol>
+
+<!-- ───────────────────────── 5. МОДУЛИ И АЛГОРИТМЫ ───────────────────────── -->
+<h2 class="pb">5. Модули и алгоритмы</h2>
+
+<h3>5.1. Модуль data_loader</h3>
+<p>Чтение и подготовка данных. <code>caliscope_reader</code> загружает <code>xyz_&lt;model&gt;_labelled.csv</code>,
+сшивает координаты с метками времени из <code>frame_time_history.csv</code> (усреднение по портам), обнуляет начало
+шкалы времени и <strong>выводит частоту съёмки из данных</strong> (а не «зашивает» её): <code>derive_fps</code> =
+<code>1 / median(положительных межкадровых интервалов)</code>. Канонический набор из 12 опорных точек:</p>
+
+<p class="codecap">Опорные точки походки (<code>data_loader/landmarks.py</code>):</p>
+<pre>GAIT_LANDMARKS = [
+    "left_shoulder", "right_shoulder",
+    "left_hip", "right_hip",
+    "left_knee", "right_knee",
+    "left_ankle", "right_ankle",
+    "left_heel", "right_heel",
+    "left_foot_index", "right_foot_index",
+]</pre>
+
+<p>Имена точек — строчные, с префиксом стороны (как в нативном выводе caliscope); прописные имена ТЗ
+(<code>LEFT_HIP</code>) трактуются как псевдонимы. Также реализованы: <code>config_reader</code> (разбор
+<code>config.toml</code> caliscope — внутренние и внешние параметры камер; вектор Родрига → матрица поворота через
+<code>scipy … Rotation.from_rotvec</code>), <code>synchronizer</code> (приведение двух записей к общей временно́й сетке
+интерполяцией) и <code>vicon_reader</code> (чтение Vicon XLSX с автоопределением строки заголовка и единиц мм/м →
+метры; готов к Этапу 3, проверен синтетически).</p>
+
+<h3>5.2. Модуль kinematics</h3>
+
+<h4>Фильтрация (<code>filters.py</code>)</h4>
+<p><code>fill_gaps(df, max_gap_frames=10)</code> кубически интерполирует внутренние пропуски не длиннее заданного (более
+длинные остаются NaN) — обязательный шаг перед фильтрацией. <code>butterworth_filter</code> — низкочастотный
+нуль-фазовый фильтр (<code>filtfilt</code>), с проверкой частоты среза и длины сигнала.</p>
+<pre>nyq = 0.5 * fs
+if cutoff_hz &gt;= nyq:
+    raise ValueError(...)
+wn = cutoff_hz / nyq
+b, a = butter(order, wn, btype="low")
+...
+return filtfilt(b, a, signal, padtype="odd")   # нуль-фазовый, без сдвига</pre>
+
+<h4>События походки (<code>gait_events.py</code>)</h4>
+<p>События определяются по экстремумам вертикальной траектории стопы (<code>scipy.signal.find_peaks</code> с
+минимальной дистанцией <code>min_stride_sec · fps</code>): <strong>контакт пятки = минимум высоты пятки</strong>,
+<strong>отрыв носка = максимум высоты носка</strong> (<code>foot_index</code>).</p>
+<pre>min_dist = max(1, int(min_stride_sec * fps))
+hs, _ = find_peaks(-heel_v, distance=min_dist)   # контакт пятки = минимумы высоты пятки
+to, _ = find_peaks(toe_v,   distance=min_dist)    # отрыв носка  = максимумы высоты носка</pre>
+
+<h4>Суставные углы (<code>joint_angles.py</code>)</h4>
+<p>Угол — это угол между двумя векторами, выходящими из вершины-сустава (0–180°). Тройки: тазобедренный
+(плечо–таз–колено), коленный (таз–колено–голеностоп), голеностопный (колено–голеностоп–носок), обе стороны.</p>
+<pre>v1 = p1 - vertex
+v2 = p2 - vertex
+n1 = np.linalg.norm(v1); n2 = np.linalg.norm(v2)
+if n1 == 0 or n2 == 0:
+    return float("nan")
+cos = np.clip(np.dot(v1, v2) / (n1 * n2), -1.0, 1.0)
+return float(np.degrees(np.arccos(cos)))</pre>
+<p class="small muted">На текущем этапе сохраняется именно «включённый» угол 0–180°; перевод в клинический знак
+сгибания/разгибания и тазовые углы (наклон/перекос/ротация) отнесены к доработкам (см. §8).</p>
+
+<h4>Нормирование цикла (<code>normalizer.py</code>)</h4>
+<p>Сигнал делится на циклы HS→HS, каждый интерполируется к 101 точке (0–100%), затем берётся NaN-устойчивое
+«среднее ± СКО» по точкам.</p>
+<pre>for start, end in zip(hs[:-1], hs[1:]):
+    seg = signal[start:end + 1]
+    if len(seg) &lt; 2:
+        continue
+    src = np.linspace(0.0, 1.0, len(seg))
+    cycles.append(np.interp(target, src, seg))   # target = linspace(0, 1, 101)</pre>
+
+<h4>Пространственно-временные параметры (<code>spatiotemporal.py</code>)</h4>
+<p>Темп = (число шагов / длительность) · 60; направление движения определяется методом главных компонент (SVD) в
+горизонтальной плоскости; длина цикла — расстояние между последовательными контактами пятки, <strong>с отбраковкой
+нефизиологичных значений</strong> (порог <code>max_stride_m</code>); скорость = длина цикла · темп / 120. Аналогично —
+длина и ширина шага (с отбраковкой), фазы опоры/переноса и двойной опоры.</p>
+<pre>strides_all = [np.linalg.norm(heel_left[b] - heel_left[a])
+               for a, b in zip(left_hs[:-1], left_hs[1:])]
+strides = [d for d in strides_all if d &lt;= max_stride_m]      # физиологический потолок
+stride_length = float(np.mean(strides)) if strides else np.nan
+speed = stride_length * cadence / 120.0</pre>
+
+<h3>5.3. Модуль visualization</h3>
+<p><code>angle_plots.py</code> строит графики углов (объектный <code>Figure</code> matplotlib, по одному подграфику на
+сустав; работает headless). <code>skeleton_3d.py</code> — GL-независимое геометрическое ядро (<code>SKELETON_EDGES</code>
+— 12 «костей», <code>frame_points</code> — точки кадра, <code>bounds</code> — общий ограничивающий объём для устойчивого
+кадрирования камеры). <code>export.py</code> — выгрузка CSV/XLSX (openpyxl) и PNG. <code>video_overlay.py</code> —
+разметка видео; сопоставление индексов MediaPipe Pose с нашими точками и отрисовка:</p>
+<pre>def draw_overlay(frame, marks, edges=SKELETON_EDGES):
+    for a, b in edges:
+        if a in marks and b in marks:
+            cv2.line(frame, marks[a], marks[b], _BONE_COLOR, 3)   # «кости» — чёрным
+    for (x, y) in marks.values():
+        cv2.circle(frame, (x, y), 7, _JOINT_COLOR, -1)            # суставы — красным
+        cv2.circle(frame, (x, y), 7, _BONE_COLOR, 1)
+    return frame</pre>
+
+<!-- ───────────────────────── 6. РЕЗУЛЬТАТЫ ───────────────────────── -->
+<h2 class="pb">6. Результаты и валидация</h2>
+
+<h3>6.1. Пример результата по одной сессии (p1_3)</h3>
+<p>Полный анализ сессии p1_3 (SIMPLE_HOLISTIC, 102 кадра, 19,996 кадр/с) даёт следующие параметры:</p>
+<table>
+  <tr><th>Параметр</th><th>Значение</th><th>Параметр</th><th>Значение</th></tr>
+  <tr><td>Темп</td><td>118,8 шаг/мин</td><td>Длина шага</td><td>0,366 м</td></tr>
+  <tr><td>Скорость</td><td>0,795 м/с</td><td>Ширина шага</td><td>0,076 м</td></tr>
+  <tr><td>Длина цикла</td><td>0,803 м</td><td>Фаза опоры*</td><td>76,4%</td></tr>
+  <tr><td>Двойная опора*</td><td>52,8%</td><td>Фаза переноса*</td><td>23,6%</td></tr>
+</table>
+<p class="small muted">* Темп, скорость, длины цикла и шага — устойчивые параметры (см. §6.2). Фазовые параметры
+(опора/перенос/двойная опора) систематически смещены из-за приближённого детектора отрыва носка (§8) и приведены
+как иллюстрация, а не как метрологически точные значения.</p>
+
+<h3>6.2. Уровень B — воспроизводимость между сессиями</h3>
+<p>Подкоманда <code>reproducibility</code> обрабатывает все 5 сессий пациента (p1_1…p1_5) и считает коэффициент
+вариации (CV = СКО/среднее) по каждому параметру. <strong>Главный результат:</strong> темп, длина цикла и скорость
+воспроизводимы с <strong>CV &lt; 11%</strong> — что укладывается в порог критерия №6 (&lt; 15%) и близко к §11.2
+(&lt; 10%). Фазовые параметры (ширина шага, доли опоры/переноса) шумнее — это объясняется смещением оценки отрыва
+носка и короткими записями (см. §8).</p>
+
+<figure><img src="figures/fig_cv.png" width="660">
+<figcaption>Рис. 6 — Воспроизводимость параметров между сессиями p1_1…p1_5 (модель SIMPLE_HOLISTIC). Зелёная пунктирная
+линия — порог §11.2 ТЗ (10%), красная — критерий приёмки №6 (15%). Темп (5,7%), скорость (7,6%) и длина цикла (5,0%)
+уверенно проходят оба порога.</figcaption></figure>
+
+<h3>6.3. Статус критериев приёмки</h3>
+<p>Из десяти критериев приёмки ТЗ <strong>семь выполнены</strong>, три <strong>заблокированы</strong> отсутствием данных
+Vicon и скрипта VvsC.py. Сводно (полная таблица — Приложение B):</p>
+<ul>
+  <li><span class="stat-ok">Выполнено</span>: фильтрация на данных с пропусками (№2), детекция HS/TO на всех 5 сессиях (№3),
+  воспроизводимость CV (№6), запуск GUI и отображение скелета/графиков (№7), экспорт CSV/XLSX (№8), прохождение тестов
+  с покрытием &gt; 70% (№9, фактически 95% на Этапе 2), чистый <code>ruff</code> (№10).</li>
+  <li><span class="stat-gate">Заблокировано (нужен Vicon/VvsC.py)</span>: воспроизведение базовых метрик VvsC.py (№1),
+  RMSE углов относительно Vicon &lt; 10°/&lt; 5° (№4), ICC коленного сустава &gt; 0,75 (№5).</li>
+</ul>
+
+<!-- ───────────────────────── 7. ТЕСТИРОВАНИЕ ───────────────────────── -->
+<h2 class="pb">7. Качество кода и тестирование</h2>
+
+<div class="ok">
+<p><strong>Что обеспечено и проверено.</strong></p>
+<ul>
+  <li><strong>79 тестов</strong> (pytest) по 16 файлам — все проходят, 0 пропущенных; разработка велась по TDD.</li>
+  <li><strong>Покрытие</strong> на момент завершения Этапа 2 — 95% (модули + конвейер), при пороге ТЗ &gt; 70%.</li>
+  <li><strong>Линтинг</strong> <code>ruff check .</code> — без ошибок (правила E, F, I, W; длина строки 100).</li>
+  <li><strong>Три уровня тестов:</strong> (1) headless-юнит (строгий TDD для конвейера и ядер визуализации);
+  (2) offscreen-смоук для GUI через pytest-qt (<code>QT_QPA_PLATFORM=offscreen</code>, без проверки пикселей);
+  (3) ручной визуальный чек-лист — единственный уровень, покрывающий реальный GL-рендер.</li>
+</ul>
+</div>
+
+<p>Распределение тестов: фильтры (8), GUI-смоук (14), caliscope_reader (7), skeleton_3d (7), video_overlay (7),
+joint_angles (6), spatiotemporal (5), synchronizer (4), angle_plots / export / gait_events / normalizer / pipeline /
+cli_integration (по 3), vicon_reader (2), config_reader (1).</p>
+
+<!-- ───────────────────────── 8. ОГРАНИЧЕНИЯ ───────────────────────── -->
+<h2 class="pb">8. Текущие ограничения и известные проблемы</h2>
+
+<p>Раздел приведён для честности картины. <strong>Ядро анализа и визуализация работают на реальных данных полностью</strong>
+(загрузка → события → углы → параметры → 3D-скелет и графики). Ниже — ограничения, преимущественно в части
+сравнения с эталоном, метода и инфраструктуры запуска.</p>
+
+<h4>Функциональные ограничения</h4>
+<ul>
+  <li><strong>Модуль сравнения с Vicon не реализован</strong> (§1, §4.2): отсутствуют выравнивание систем координат
+  (Umeyama), метрики RMSE/MAE/Pearson/ICC и отчёт; уровни A и C недостижимы. Зависимость <code>pingouin</code> (для ICC)
+  объявлена, но не установлена.</li>
+  <li><strong>Суставной угол — «включённый» 0–180°</strong>, а не клинический знаковый сгиб/разгиб; <strong>тазовые
+  углы</strong> (наклон/перекос/ротация) не реализованы.</li>
+  <li><strong>Смещение оценки отрыва носка.</strong> Текущий детектор берёт максимум высоты носка (середина переноса), а
+  не истинный момент отрыва, отсюда повышенный шум фазовых параметров (ширина шага CV ≈ 33%, доли опоры/переноса
+  CV ≈ 26%) и завышенные/неустойчивые значения фаз опоры и двойной опоры (как в §6.1).</li>
+</ul>
+
+<h4>Особенности данных</h4>
+<ul>
+  <li><strong>Короткие записи</strong> (~64–102 кадра, ~2–4 цикла на сессию) — мало циклов для усреднения; CV приводится с
+  учётом числа циклов.</li>
+  <li>Частота съёмки caliscope ≈ <strong>20 кадр/с</strong> (выводится из данных), ниже предполагавшихся ТЗ ~25–30; всегда
+  читается из метаданных, не «зашита».</li>
+</ul>
+
+<h4>Инфраструктура запуска (GL/Wayland)</h4>
+<ul>
+  <li>3D-скелет (vispy) использует GLSL <code>#version 120</code>; под <strong>Wayland</strong> NVIDIA выдаёт встроенному
+  виджету core-profile EGL-контекст, отвергающий такие шейдеры. Решение в <code>app.py</code>: принудительный
+  перевод на <strong>XWayland (xcb)</strong>, где GLX даёт совместимый контекст.</li>
+</ul>
+<pre>def _platform_for(current):
+    if current == "offscreen":
+        return "offscreen"
+    if current == "" or "wayland" in current:
+        return "xcb"        # маршрут через XWayland: шейдеры GLSL 120 компилируются
+    return current</pre>
+<ul>
+  <li><strong>Реальный GL-рендер скелета не покрыт автотестами</strong> (осознанный компромисс): пиксели проверяются
+  только ручным визуальным чек-листом на машине с дисплеем.</li>
+</ul>
+
+<!-- ───────────────────────── 9. ДОРОЖНАЯ КАРТА ───────────────────────── -->
+<h2 class="pb">9. Дорожная карта</h2>
+<ol>
+  <li><strong>Модуль сравнения с Vicon (Этап 3)</strong> — строится сейчас, синтетически тестируемо без данных Vicon:
+  <ul class="small">
+    <li><code>alignment.py</code> — жёсткое выравнивание систем координат методом <strong>Umeyama (1991, SVD)</strong>
+    (с масштабом), оценка на статичном опорном окне и применение к записи;</li>
+    <li><code>metrics.py</code> — RMSE, MAE, Pearson r, ICC(3,1) (рекомендуется компактная numpy-реализация ICC вместо
+    тяжёлого <code>pingouin</code>);</li>
+    <li><code>report.py</code> + подкоманда <code>compare</code> → <code>comparison_report.json</code> с вердиктом
+    (хорошо &lt; 5°, приемлемо 5–10°, плохо &gt; 10°);</li>
+    <li>опционально — вкладка GUI «Сравнение» по образцу панелей Этапа 2.</li>
+  </ul></li>
+  <li><strong>Разблокировка уровней A и C</strong> — по получении от заказчика <strong>Vicon XLSX</strong> и
+  <strong>VvsC.py</strong>: точность относительно эталона (критерии №4, №5) и сравнительная таблица алгоритмов (№1).</li>
+  <li><strong>Клинические углы и тазовые параметры</strong> — знаковый сгиб/разгиб; наклон/перекос/ротация таза.</li>
+  <li><strong>Уточнение детектора отрыва носка</strong> — снижение шума фазовых параметров и смещения фаз.</li>
+  <li><strong>Упаковка и развёртывание</strong> — оформление как устанавливаемого пакета; запуск на машине с дисплеем,
+  прогон ручного визуального чек-листа.</li>
+</ol>
+
+<!-- ───────────────────────── 10. ПРИЛОЖЕНИЯ ───────────────────────── -->
+<h2 class="pb">10. Приложения</h2>
+
+<h3>Приложение A. CLI и выходные файлы</h3>
+<table>
+  <tr><th>Команда</th><th>Назначение</th><th>Ключевые аргументы</th></tr>
+  <tr><td><code>analyze</code></td><td>Анализ одной сессии → JSON</td><td><code>--session --model --out</code></td></tr>
+  <tr><td><code>reproducibility</code></td><td>CV по набору сессий (уровень B)</td><td><code>--recordings --sessions --model --out</code></td></tr>
+  <tr><td><code>produce-videos</code></td><td>Видео со скелетом по камерам</td><td><code>--session --model --out</code></td></tr>
+</table>
+<p class="small">Выходные артефакты: <code>gait_results.json</code> (session_id, model, fps, n_frames, processed_at,
+gait_events {left/right_HS/TO}, spatiotemporal, joint_angles_mean/std — массивы по 101 точке); CSV
+(<code>parameter,value</code>); многолистовой XLSX; PNG графиков; <code>port_N_marked.mp4</code> на каждую камеру.</p>
+
+<h3>Приложение B. Критерии приёмки ТЗ (10)</h3>
+<table>
+  <tr><th>№</th><th>Критерий</th><th>Статус</th></tr>
+  <tr><td>1</td><td>VvsC.py запускается и воспроизводит базовые метрики</td><td class="stat-gate">Заблокировано (нет скрипта)</td></tr>
+  <tr><td>2</td><td><code>fill_gaps</code> + <code>butterworth_filter</code> на данных с NaN</td><td class="stat-ok">Выполнено</td></tr>
+  <tr><td>3</td><td>Детектор находит HS/TO на всех 5 сессиях p1</td><td class="stat-ok">Выполнено</td></tr>
+  <tr><td>4</td><td>RMSE углов относительно Vicon &lt; 10° / &lt; 5°</td><td class="stat-gate">Заблокировано (уровень A)</td></tr>
+  <tr><td>5</td><td>ICC коленного сустава &gt; 0,75</td><td class="stat-gate">Заблокировано (уровень A)</td></tr>
+  <tr><td>6</td><td>CV между сессиями p1_1…p1_5 &lt; 15%</td><td class="stat-ok">Выполнено (&lt; 11%)</td></tr>
+  <tr><td>7</td><td>GUI загружает проект, показывает скелет и графики</td><td class="stat-ok">Выполнено</td></tr>
+  <tr><td>8</td><td>Экспорт в CSV и XLSX работает</td><td class="stat-ok">Выполнено</td></tr>
+  <tr><td>9</td><td>Тесты проходят, покрытие &gt; 70%</td><td class="stat-ok">Выполнено (95%)</td></tr>
+  <tr><td>10</td><td><code>ruff check .</code> без ошибок</td><td class="stat-ok">Выполнено</td></tr>
+</table>
+
+<h3>Приложение C. Структура репозитория (ключевое)</h3>
+<ul class="small">
+  <li><code>cli.py</code> — командный интерфейс; <code>app.py</code> — запуск GUI; <code>pipeline.py</code> — общий конвейер.</li>
+  <li><code>modules/data_loader/</code> — caliscope_reader, config_reader, landmarks, synchronizer, vicon_reader.</li>
+  <li><code>modules/kinematics/</code> — filters, gait_events, joint_angles, normalizer, spatiotemporal.</li>
+  <li><code>modules/visualization/</code> — angle_plots, export, skeleton_3d, video_overlay.</li>
+  <li><code>gui/</code> — main_window, worker, overlay_worker, panels/ (analyze, viz), widgets/ (plot, skeleton).</li>
+  <li><code>tests/</code> — 16 файлов <code>test_*.py</code> + conftest + fixtures; <code>settings.yaml</code> — конфигурация.</li>
+  <li><code>modules/comparison/</code> — <em>отсутствует</em> (Этап 3); <code>docs/</code> — спецификации и планы.</li>
+</ul>
+
+<h3>Приложение D. Доступные данные</h3>
+<p class="small">Проект caliscope: 3 камеры (port_1/2/3). Сессии пациента p1 — <code>p1_1…p1_5</code> (полный набор моделей
+POSE / SIMPLE_HOLISTIC / HOLISTIC) — основной набор для уровня B. <strong>p1_3</strong> — эталонная сессия для
+иллюстраций (102 кадра, 19,996 кадр/с, есть исходные <code>port_*.mp4</code> для видео-разметки). Дополнительно:
+p2_1 (только HOLISTIC), служебные walking_test / 2_test. Данные Vicon — <strong>отсутствуют</strong>.</p>
+
+<h3>Приложение E. Зависимости и окружение</h3>
+<p class="small">Python 3.14 (в .venv; цель сборки py311). Проверенные версии: numpy, pandas, scipy, scikit-learn,
+PyYAML, openpyxl, matplotlib, <strong>PyQt6 6.11.0</strong>, <strong>vispy 0.16.2</strong>, PyOpenGL 3.1.10, pytest-qt 4.5,
+<strong>opencv-python-headless 4.13</strong> (видео-разметка), pytest, pytest-cov, ruff. Не установлены (Этап 3):
+<code>pingouin</code>, <code>plotly</code>. Машина: NVIDIA RTX 3060, OpenGL 4.6, Wayland + KDE; glibc 2.42.</p>
+
+<hr>
+<p class="small muted" style="text-align:center">Анализ кинематики походки — отчёт о программном комплексе. Подготовлено на
+основе технического задания, проектных материалов <code>docs/</code> и фактического исходного кода репозитория; все
+графики и снимки получены кодом проекта на реальных данных пациента p1. Документ честно разграничивает реализованное,
+частично реализованное и целевое.</p>
+
+</body>
+</html>
