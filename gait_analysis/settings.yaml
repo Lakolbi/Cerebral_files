@@ -1,0 +1,44 @@
+paths:
+  caliscope_root: data/caliscope_project
+  vicon_root: data/Vicon_10_series
+  output_dir: results/
+  camera_config: data/caliscope_project/config.toml
+
+processing:
+  default_model: SIMPLE_HOLISTIC      # POSE | SIMPLE_HOLISTIC | HOLISTIC
+  target_fps: 100                     # sync grid for Vicon comparison only
+  filter_cutoff_hz: 6.0
+  filter_order: 4
+  max_gap_frames: 10
+  min_stride_duration_sec: 0.8       # full same-foot stride interval (HS->HS), not a step
+
+gait_events:
+  method: velocity                    # velocity | height | combined
+  heel_landmark: heel
+  toe_landmark: foot_index
+  vertical_axis: z
+
+landmark_mapping:                     # Vicon marker -> canonical landmark
+  LASI: left_hip
+  RASI: right_hip
+  LKNE: left_knee
+  RKNE: right_knee
+  LANK: left_ankle
+  RANK: right_ankle
+  LHEE: left_heel
+  RHEE: right_heel
+  LTOE: left_foot_index
+  RTOE: right_foot_index
+
+spatiotemporal:
+  max_stride_m: 1.5    # reject strides longer than this (end-of-recording tracking failures)
+  max_step_m: 1.0      # reject steps longer than this
+
+comparison:
+  icc_type: '3,1'
+  good_rmse_threshold_deg: 5.0
+  acceptable_rmse_threshold_deg: 10.0
+  vicon_fps: 100.0                  # Vicon device sample rate
+  sync_method: xcorr                # xcorr | jump | zmax (temporal alignment for position layer)
+  reference_landmarks: null         # markers used for rigid alignment (null = all common)
+  pairs: null                       # optional {caliscope_session: vicon_file} synchronous map
